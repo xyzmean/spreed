@@ -13,7 +13,7 @@
     "analyze:stats": "rspack build --env production --json js/stats.json",
     "build": "rspack build --env production",
     "dev": "rspack build --env development",
-    "lint": "eslint",
+    "lint": "eslint && node src/xcloudIcons/buildRoomAvatars.mjs --check",
     "lint:fix": "eslint --fix",
     "serve": "rspack dev --env development",
     "stylelint": "stylelint \"src/**/*.scss\" \"src/**/*.vue\"",

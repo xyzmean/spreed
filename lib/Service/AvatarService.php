@@ -25,8 +25,15 @@ use OCP\Security\ISecureRandom;
 
 class AvatarService {
 	public const THEMING_PLACEHOLDER = '{{THEMING}}';
-	public const THEMING_DARK_BACKGROUND = '3B3B3B';
-	public const THEMING_BRIGHT_BACKGROUND = '6B6B6B';
+	// xcloud: the surface an emoji avatar sits on, from the mockup palette —
+	// Mocha #313244 in the dark theme, Latte #ccd0da in the light one. Upstream
+	// puts both on neutral grey, which reads as a hole next to the placeholder
+	// avatars in img/, and those two are shown side by side in every chat list.
+	public const THEMING_DARK_BACKGROUND = '313244';
+	public const THEMING_BRIGHT_BACKGROUND = 'ccd0da';
+
+	/** @var array<string, string> path => content digest, see getAvatarVersion() */
+	private array $placeholderVersions = [];
 
 	public function __construct(
 		private readonly IAppData $appData,
@@ -317,7 +324,29 @@ class AvatarService {
 		if ($this->emojiService->isValidSingleEmoji(mb_substr($room->getName(), 0, 1))) {
 			return substr(md5($this->getEmojiAvatar($this->emojiService->getFirstCombinedEmoji($room->getName()), self::THEMING_BRIGHT_BACKGROUND)), 0, 8);
 		}
-		$avatarPath = $this->getAvatarPath($room);
-		return substr(md5($avatarPath), 0, 8);
+		return $this->placeholderVersion($this->getAvatarPath($room));
+	}
+
+	/**
+	 * Cache-busting version of a placeholder avatar, derived from its content.
+	 *
+	 * Upstream hashes the file *path*, which never changes, because upstream
+	 * never redraws these files. We do: they are part of the design, and the
+	 * avatar route is cached for a day (AvatarController::getAvatar), so a
+	 * redrawn glyph reached nobody until the cache expired. Hashing the bytes
+	 * makes a redraw a new URL.
+	 *
+	 * The digest is memoised per request: a chat list asks for one version per
+	 * conversation, but there are only ten distinct files behind them.
+	 */
+	private function placeholderVersion(string $avatarPath): string {
+		if (!isset($this->placeholderVersions[$avatarPath])) {
+			$digest = @md5_file($avatarPath);
+			// A missing file is not worth an exception here — the avatar route
+			// will fail loudly on its own; falling back to the path keeps the
+			// version stable instead of changing on every request.
+			$this->placeholderVersions[$avatarPath] = substr($digest ?: md5($avatarPath), 0, 8);
+		}
+		return $this->placeholderVersions[$avatarPath];
 	}
 }

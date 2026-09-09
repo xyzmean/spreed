@@ -4,6 +4,7 @@
  */
 
 import { h } from 'vue'
+import { glyph } from './glyphs.mjs'
 
 /**
  * Build a stroke icon that can stand in for a vue-material-design-icons one.
@@ -19,12 +20,16 @@ import { h } from 'vue'
  * colours. The props and the click event are the ones the package exposes, so
  * a call site does not change when its icon does.
  *
+ * The artwork itself is not here: it comes from `glyphs.mjs`, which is also
+ * what generates the conversation placeholder avatars that PHP serves. One
+ * table, two very different consumers — otherwise the same glyph gets drawn
+ * twice and the two copies drift.
+ *
  * @param {string} name kebab-case icon name, e.g. `chevron-double-down`
- * @param {string} body svg markup inside the root element
- * @param {number} strokeWidth pen weight, as in the mockup
  * @return {object} Vue component with the vue-material-design-icons interface
  */
-export function makeIcon(name, body, strokeWidth = 1.8) {
+export function makeIcon(name) {
+	const { d: body, width: strokeWidth } = glyph(name)
 	const componentName = name.replace(/(^|-)([a-z])/g, (match, dash, letter) => letter.toUpperCase()) + 'Icon'
 
 	return {
