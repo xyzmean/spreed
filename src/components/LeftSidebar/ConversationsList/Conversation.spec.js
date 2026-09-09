@@ -8,6 +8,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { cloneDeep } from 'es-toolkit'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createStore } from 'vuex'
+import NcCounterBubble from '@nextcloud/vue/components/NcCounterBubble'
 import NcListItem from '@nextcloud/vue/components/NcListItem'
 import IconFileOutline from 'vue-material-design-icons/FileOutline.vue'
 import ConversationIcon from '../../ConversationIcon.vue'
@@ -216,45 +217,60 @@ describe('ConversationItem.vue', () => {
 		 * @param {boolean} expectedOutlined The expected outlined counter
 		 * @param {boolean} expectedHighlighted Whether or not the unread counter is highlighted with primary color
 		 */
-		function testCounter(item, expectedCounterText, expectedOutlined, expectedHighlighted) {
+		async function testCounter(item, expectedCounterText, expectedOutlined, expectedHighlighted) {
 			const wrapper = mountConversation(false)
+			// NcListItem decides whether it has a subname in checkSlots() after
+			// mount, so the subname — and with it the counter — is not in the
+			// DOM of the first render.
+			await flushPromises()
 
 			const el = wrapper.findComponent(NcListItem)
 			expect(el.exists()).toBe(true)
 
-			expect(el.props('counterNumber')).toBe(expectedCounterText)
+			// The counter sits on the preview line, next to the last message,
+			// because the name line carries the timestamp: with both on the
+			// name line a 300px sidebar truncates the conversation name. So the
+			// number comes from the counter in the subname slot whenever there
+			// is a preview, and from NcListItem's own column when there is not.
+			// Either way it is one counter, and it is the one the user sees.
+			const bubble = wrapper.findComponent(NcCounterBubble)
+			const [counter, counterType] = bubble.exists()
+				? [bubble.props('count'), bubble.props('type')]
+				: [el.props('counterNumber'), el.props('counterType')]
+
+			expect(counter).toBe(expectedCounterText)
 			if (expectedOutlined) {
-				expect(el.props('counterType')).toBe('outlined')
+				expect(counterType).toBe('outlined')
 			}
 			if (expectedHighlighted) {
-				expect(el.props('counterType')).toBe('highlighted')
+				expect(counterType).toBe('highlighted')
 			}
 		}
 
-		test('renders unread messages counter', () => {
+		test('renders unread messages counter', async () => {
 			item.unreadMessages = 5
 			item.unreadMention = false
 			item.unreadMentionDirect = false
-			testCounter(item, 5, false, false)
+			await testCounter(item, 5, false, false)
 		})
-		test('renders unread mentions highlighted for non one-to-one conversations', () => {
+		test('renders unread mentions highlighted for non one-to-one conversations', async () => {
 			item.unreadMessages = 5
 			item.unreadMention = true
 			item.unreadMentionDirect = true
-			testCounter(item, 5, false, true)
+			await testCounter(item, 5, false, true)
 		})
-		test('renders group mentions outlined for non one-to-one conversations', () => {
+		test('renders group mentions outlined for non one-to-one conversations', async () => {
 			item.unreadMessages = 5
 			item.unreadMention = true
 			item.unreadMentionDirect = false
-			testCounter(item, 5, true, false)
+			await testCounter(item, 5, true, false)
 		})
-		test('renders unread mentions always highlighted for one-to-one conversations', () => {
+		test('renders unread mentions always highlighted for one-to-one conversations', async () => {
 			item.unreadMessages = 5
 			item.unreadMention = false
 			item.unreadMentionDirect = false
 			item.type = CONVERSATION.TYPE.ONE_TO_ONE
-			testCounter(item, 5, false, true)
+			await testCounter(item, 5, false, true)
 		})
 
 		test('does not render counter when no unread messages', () => {

@@ -9,6 +9,7 @@ const { defineConfig } = require('@rspack/cli')
 const { CssExtractRspackPlugin, LightningCssMinimizerRspackPlugin, DefinePlugin, ProgressPlugin, SwcJsMinimizerRspackPlugin } = require('@rspack/core')
 const NodePolyfillPlugin = require('@rspack/plugin-node-polyfill')
 const browserslist = require('browserslist')
+const fs = require('node:fs')
 const path = require('node:path')
 const { VueLoaderPlugin } = require('vue-loader')
 
@@ -23,6 +24,25 @@ const minBrowserVersion = browsers
 		return minVersion
 	}, {})
 const targets = Object.entries(minBrowserVersion).map(([browser, version]) => `${browser} >=${version}`).join(',')
+
+// The xcloud design draws icons as strokes, Material Design ships filled paths,
+// and CSS cannot turn one into the other. Every icon that the mockup draws has a
+// stand-in in src/xcloudIcons with the same component interface and the same
+// `material-design-icon <name>-icon` class names, so call sites and the theme
+// layer stay as they are and the swap happens here, once, instead of in every
+// component that imports an icon.
+//
+// Only names present in that directory are redirected: an icon nobody drew keeps
+// coming from the package. Note that @nextcloud/vue inlines its own icons at its
+// own build time, so icons rendered inside its components are out of reach here.
+const xcloudIconsDir = path.join(__dirname, 'src', 'xcloudIcons')
+const xcloudIcons = Object.fromEntries(fs.readdirSync(xcloudIconsDir)
+	.filter((file) => /^[A-Z][A-Za-z]*\.js$/.test(file))
+	.map((file) => [
+		// `$` — exact match, so nothing else under the package is touched
+		`vue-material-design-icons/${file.replace(/\.js$/, '.vue')}$`,
+		path.join(xcloudIconsDir, file),
+	]))
 
 module.exports = defineConfig((env) => {
 	const appName = process.env.npm_package_name
@@ -237,6 +257,7 @@ module.exports = defineConfig((env) => {
 		resolve: {
 			extensions: ['*', '.ts', '.js', '.vue'],
 			symlinks: false,
+			alias: xcloudIcons,
 			fallback: {
 				fs: false,
 			},
