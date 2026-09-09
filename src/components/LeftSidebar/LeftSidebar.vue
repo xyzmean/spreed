@@ -7,31 +7,105 @@
 	<NcAppNavigation ref="leftSidebar" :aria-label="t('spreed', 'Conversation list')">
 		<template #search>
 			<div class="navigation-top">
+				<!-- App title and the conversation creation menu -->
+				<div class="navigation-header">
+					<h2 class="navigation-header__title">
+						{{ APP_TITLE }}
+					</h2>
+
+					<!-- Actions -->
+					<NcActions
+						class="navigation-header__actions"
+						variant="secondary"
+						:title="NEW_CONVERSATION_LABEL"
+						:aria-label="NEW_CONVERSATION_LABEL">
+						<template #icon>
+							<IconPlus :size="20" />
+						</template>
+						<NcActionButton
+							v-if="canStartConversations"
+							closeAfterClick
+							@click="showModalNewConversation">
+							<template #icon>
+								<IconChatPlusOutline :size="20" />
+							</template>
+							{{ NEW_CONVERSATION_LABEL }}
+						</NcActionButton>
+
+						<NcActionButton
+							v-if="canNoteToSelf && !hasNoteToSelf"
+							closeAfterClick
+							@click="restoreNoteToSelfConversation">
+							<template #icon>
+								<IconNoteEditOutline :size="20" />
+							</template>
+							{{ t('spreed', 'New personal note') }}
+						</NcActionButton>
+
+						<NcActionButton closeAfterClick @click="showModalListConversations">
+							<template #icon>
+								<IconFormatListBulleted :size="20" />
+							</template>
+							{{ t('spreed', 'Join open conversations') }}
+						</NcActionButton>
+
+						<NcActionButton
+							v-if="canModerateSipDialOut"
+							closeAfterClick
+							@click="showModalCallPhoneDialog">
+							<template #icon>
+								<IconPhoneOutline :size="20" />
+							</template>
+							{{ t('spreed', 'Call a phone number') }}
+						</NcActionButton>
+						<NcActionButton
+							v-else-if="hintSipDialOut"
+							disabled
+							:description="t('spreed', 'SIP backend is not installed')">
+							<template #icon>
+								<IconPhoneOutline :size="20" />
+							</template>
+							{{ t('spreed', 'Call a phone number') }}
+						</NcActionButton>
+					</NcActions>
+				</div>
+
 				<div class="navigation-buttons-container">
 					<div class="new-conversation">
-						<div
-							class="conversations-search"
-							:class="{ 'conversations-search--expanded': isSearching }">
+						<div class="conversations-search">
 							<SearchBox
 								ref="searchBox"
 								v-model:value="searchText"
 								v-model:isFocused="isFocused"
+								:placeholderText="SEARCH_PLACEHOLDER"
 								:listRef="[scroller, searchResults]"
 								@input="debounceFetchSearchResults"
 								@abortSearch="abortSearch" />
 						</div>
 
-						<TransitionWrapper name="radial-reveal">
+						<!-- Quick filters, driven by the very same state as the filter menu -->
+						<div v-show="!isSearching" class="conversations__chips">
+							<button
+								v-for="chip in filterChips"
+								:key="chip.id"
+								type="button"
+								class="conversations__chip"
+								:class="{ 'conversations__chip--active': chip.active }"
+								:aria-pressed="chip.active"
+								@click="chip.action()">
+								{{ chip.label }}
+							</button>
+
 							<!-- Filters -->
 							<NcActions
-								v-show="searchText === ''"
 								:variant="isFiltered ? 'secondary' : 'tertiary'"
 								class="filters"
-								:class="{ 'hidden-visually': isSearching }">
+								:title="FILTER_LABELS.header"
+								:aria-label="FILTER_LABELS.header">
 								<template #icon>
 									<IconFilterVariant :size="20" />
 								</template>
-								<NcActionCaption :name="t('spreed', 'Filter conversations by')" />
+								<NcActionCaption :name="FILTER_LABELS.header" />
 
 								<NcActionButton
 									closeAfterClick
@@ -145,66 +219,7 @@
 									</NcActionButton>
 								</template>
 							</NcActions>
-						</TransitionWrapper>
-
-						<!-- Actions -->
-						<TransitionWrapper name="radial-reveal">
-							<NcActions
-								v-show="searchText === ''"
-								class="actions"
-								:class="{ 'hidden-visually': isSearching }">
-								<template #icon>
-									<IconChatPlusOutline :size="20" />
-								</template>
-								<NcActionButton
-									v-if="canStartConversations"
-									closeAfterClick
-									@click="showModalNewConversation">
-									<template #icon>
-										<IconPlus :size="20" />
-									</template>
-									{{ t('spreed', 'Create a new conversation') }}
-								</NcActionButton>
-
-								<NcActionButton
-									v-if="canNoteToSelf && !hasNoteToSelf"
-									closeAfterClick
-									@click="restoreNoteToSelfConversation">
-									<template #icon>
-										<IconNoteEditOutline :size="20" />
-									</template>
-									{{ t('spreed', 'New personal note') }}
-								</NcActionButton>
-
-								<NcActionButton
-									closeAfterClick
-									@click="showModalListConversations">
-									<template #icon>
-										<IconFormatListBulleted :size="20" />
-									</template>
-									{{ t('spreed', 'Join open conversations') }}
-								</NcActionButton>
-
-								<NcActionButton
-									v-if="canModerateSipDialOut"
-									closeAfterClick
-									@click="showModalCallPhoneDialog">
-									<template #icon>
-										<IconPhoneOutline :size="20" />
-									</template>
-									{{ t('spreed', 'Call a phone number') }}
-								</NcActionButton>
-								<NcActionButton
-									v-else-if="hintSipDialOut"
-									disabled
-									:description="t('spreed', 'SIP backend is not installed')">
-									<template #icon>
-										<IconPhoneOutline :size="20" />
-									</template>
-									{{ t('spreed', 'Call a phone number') }}
-								</NcActionButton>
-							</NcActions>
-						</TransitionWrapper>
+						</div>
 
 						<!-- All open conversations list -->
 						<OpenConversationsList ref="openConversationsList" />
@@ -219,13 +234,13 @@
 						<InvitationHandler v-if="pendingInvitationsCount" ref="invitationHandler" />
 					</div>
 					<TransitionWrapper
-						v-if="filters.length"
+						v-if="menuOnlyFilters.length"
 						class="conversations__filters"
 						name="zoom"
 						tag="div"
 						group>
 						<NcChip
-							v-for="filter in filters"
+							v-for="filter in menuOnlyFilters"
 							:key="filter"
 							:text="FILTER_LABELS[filter]"
 							@close="handleFilter(filter)" />
@@ -233,30 +248,11 @@
 				</div>
 
 				<div v-if="!isSearching" class="navigation-buttons-container">
-					<LeftSidebarButton
-						:to="{ name: 'root' }"
-						:active="$route.name === 'root'"
-						@click="refreshTalkDashboard">
+					<LeftSidebarButton v-if="showArchived" @click="handleBackToConversations">
 						<template #icon>
-							<IconHomeOutline :size="20" />
+							<IconArrowLeft class="bidirectional-icon" :size="20" />
 						</template>
-						{{ HOME_BUTTON_LABEL }}
-					</LeftSidebarButton>
-					<template v-if="showArchived || showThreadsList">
-						<LeftSidebarButton @click="handleBackToConversations">
-							<template #icon>
-								<IconArrowLeft class="bidirectional-icon" :size="20" />
-							</template>
-							{{ t('spreed', 'Back to conversations') }}
-						</LeftSidebarButton>
-					</template>
-					<LeftSidebarButton
-						v-else-if="supportThreads && !showThreadsList && !isSearching && !isFiltered"
-						@click="handleShowThreadsList">
-						<template #icon>
-							<IconForumOutline :size="20" />
-						</template>
-						{{ t('spreed', 'Threads') }}
+						{{ t('spreed', 'Back to conversations') }}
 					</LeftSidebarButton>
 					<LeftSidebarButton
 						v-if="pendingInvitationsCount && !isSearching && !showArchived && !showThreadsList"
@@ -427,7 +423,6 @@ import IconFilterVariant from 'vue-material-design-icons/FilterVariant.vue'
 import IconFilterVariantRemove from 'vue-material-design-icons/FilterVariantRemove.vue'
 import IconFormatListBulleted from 'vue-material-design-icons/FormatListBulleted.vue'
 import IconForumOutline from 'vue-material-design-icons/ForumOutline.vue'
-import IconHomeOutline from 'vue-material-design-icons/HomeOutline.vue'
 import IconMessageBadgeOutline from 'vue-material-design-icons/MessageBadgeOutline.vue'
 import IconMessageOutline from 'vue-material-design-icons/MessageOutline.vue'
 import IconNoteEditOutline from 'vue-material-design-icons/NoteEditOutline.vue'
@@ -491,14 +486,22 @@ const supportThreads = hasTalkFeature('local', 'threads')
 const supportSortOrder = getTalkConfig('local', 'conversations', 'sort-order') !== undefined
 const supportTags = hasTalkFeature('local', 'conversation-tags')
 
-// TRANSLATORS The main home view
-const HOME_BUTTON_LABEL = t('spreed', 'Home')
+// TRANSLATORS The name of the app, shown above the conversation list
+const APP_TITLE = t('spreed', 'Talk')
+const NEW_CONVERSATION_LABEL = t('spreed', 'Create a new conversation')
+const SEARCH_PLACEHOLDER = t('spreed', 'Search chats and messages')
 const FILTER_LABELS = {
+	// TRANSLATORS Quick filter above the conversation list: no filter applied
+	all: t('spreed', 'All'),
 	unread: t('spreed', 'Unread'),
+	threads: t('spreed', 'Threads'),
 	mentions: t('spreed', 'Mentions'),
 	events: t('spreed', 'Meetings'),
+	header: t('spreed', 'Filter conversations by'),
 	default: '',
 }
+// Filters that also have a quick filter chip of their own
+const CHIP_FILTERS = ['unread']
 const SORT_LABELS = {
 	// TRANSLATORS Navigation actions: sort conversations by recent activity / sort alphabetically
 	SORTBY_HEADER: t('spreed', 'Sort conversations'),
@@ -514,8 +517,6 @@ const SORT_LABELS = {
 	// TRANSLATORS Navigation actions: arrange list by putting private or group conversations on top
 	GROUPBY_GROUP_FIRST: t('spreed', 'Show group ones first'),
 }
-
-let actualizeDataTimeout = null
 
 export default {
 	name: 'LeftSidebar',
@@ -552,7 +553,6 @@ export default {
 		IconArrowLeft,
 		IconCalendarBlankOutline,
 		IconForumOutline,
-		IconHomeOutline,
 		IconPhoneOutline,
 		IconPlus,
 		IconChatPlusOutline,
@@ -605,7 +605,9 @@ export default {
 			showThreadsList,
 			settingsStore,
 			CONVERSATION,
-			HOME_BUTTON_LABEL,
+			APP_TITLE,
+			NEW_CONVERSATION_LABEL,
+			SEARCH_PLACEHOLDER,
 			FILTER_LABELS,
 			SORT_LABELS,
 			LIST_HEADING_ID,
@@ -754,6 +756,56 @@ export default {
 
 		isFiltered() {
 			return this.filters.length !== 0
+		},
+
+		/**
+		 * Filters that are not represented by a quick filter chip and therefore
+		 * still need a removable NcChip below the search field.
+		 */
+		menuOnlyFilters() {
+			return this.filters.filter((filter) => !CHIP_FILTERS.includes(filter))
+		},
+
+		/**
+		 * Quick filters shown as a row of chips under the search field. They are
+		 * only another way of driving the state behind the filter menu.
+		 */
+		filterChips() {
+			const chips = [{
+				id: 'all',
+				label: FILTER_LABELS.all,
+				active: !this.isFiltered && !this.showThreadsList && !this.showArchived,
+				action: () => {
+					this.showArchived = false
+					this.showThreadsList = false
+					this.handleFilter(null)
+				},
+			}, {
+				id: 'unread',
+				label: FILTER_LABELS.unread,
+				active: this.filters.includes('unread'),
+				action: () => {
+					this.showArchived = false
+					this.handleFilter('unread')
+				},
+			}]
+
+			if (this.supportThreads) {
+				chips.push({
+					id: 'threads',
+					label: FILTER_LABELS.threads,
+					active: this.showThreadsList,
+					action: () => {
+						if (this.showThreadsList) {
+							this.handleBackToConversations()
+						} else {
+							this.handleShowThreadsList()
+						}
+					},
+				})
+			}
+
+			return chips
 		},
 
 		conversationsInitialised() {
@@ -1206,25 +1258,6 @@ export default {
 			}
 		},
 
-		refreshTalkDashboard(event) {
-			// Throttle click and keyboard events
-			if (actualizeDataTimeout) {
-				return
-			}
-			actualizeDataTimeout = setTimeout(() => {
-				actualizeDataTimeout = null
-			}, 5_000)
-
-			// Reset modes
-			this.showArchived = false
-			this.showThreadsList = false
-
-			if (this.$route.name === 'root') {
-				event.preventDefault()
-				EventBus.emit('refresh-talk-dashboard')
-			}
-		},
-
 		handleShowThreadsList() {
 			this.showThreadsList = true
 			this.showArchived = false
@@ -1258,7 +1291,34 @@ export default {
 	display: flex;
 	flex-direction: column;
 	gap: calc(2 * var(--default-grid-baseline));
-	padding-block: calc(2 * var(--default-grid-baseline)) var(--default-grid-baseline);
+	padding-block: 0 var(--default-grid-baseline);
+}
+
+.navigation-header {
+	display: flex;
+	align-items: center;
+	gap: calc(2 * var(--default-grid-baseline));
+	height: 60px;
+	flex: 0 0 60px;
+	// Inline with the conversation list below
+	padding-inline: calc(4 * var(--default-grid-baseline)) calc(2 * var(--default-grid-baseline));
+	border-block-end: 1px solid var(--color-border);
+
+	&__title {
+		flex: 1 1 auto;
+		min-width: 0;
+		margin: 0;
+		font-size: 19px;
+		font-weight: 700;
+		letter-spacing: -0.3px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__actions {
+		flex: 0 0 auto;
+	}
 }
 
 .navigation-bottom {
@@ -1274,21 +1334,9 @@ export default {
 }
 
 .new-conversation {
-	position: relative;
 	display: flex;
-	align-items: center;
-
-	.filters {
-		position: absolute;
-		top: 0;
-		inset-inline-end: calc(var(--default-grid-baseline) + var(--default-clickable-area));
-	}
-
-	.actions {
-		position: absolute;
-		top: 0;
-		inset-inline-end: 0;
-	}
+	flex-direction: column;
+	gap: calc(2 * var(--default-grid-baseline));
 }
 
 .navigation-caption {
@@ -1314,19 +1362,64 @@ export default {
 }
 
 .conversations-search {
-	transition: all 0.15s ease;
 	z-index: 1;
 	// TODO replace with NcAppNavigationSearch
-	width: calc(100% - (var(--default-grid-baseline) + var(--default-clickable-area)) * 2);
+	width: 100%;
 	display: flex;
-
-	&--expanded {
-		width: 100%;
-	}
 
 	:deep(.input-field) {
 		margin-block-start: 0;
 	}
+}
+
+.conversations__chips {
+	display: flex;
+	align-items: center;
+	gap: var(--default-grid-baseline);
+	// Long translations scroll instead of squeezing the labels into ellipsis
+	overflow-x: auto;
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+.conversations__chip {
+	flex: 0 0 auto;
+	height: 28px;
+	padding-inline: calc(2 * var(--default-grid-baseline));
+	border: none;
+	border-radius: var(--border-radius);
+	background-color: transparent;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 28px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		background-color: var(--color-background-hover);
+		color: var(--color-main-text);
+	}
+
+	&--active,
+	&--active:hover,
+	&--active:focus-visible {
+		background-color: var(--color-primary-element-light);
+		color: var(--color-primary-element);
+		font-weight: 600;
+	}
+}
+
+// The filter menu keeps its place at the end of the chip row
+.new-conversation .filters {
+	flex: 0 0 auto;
+	margin-inline-start: auto;
 }
 
 .conversations__filters {

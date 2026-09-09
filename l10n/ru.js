@@ -1,6 +1,11 @@
 OC.L10N.register(
     "spreed",
     {
+    "All" : "Все",
+    "Search chats and messages" : "Поиск по чатам и сообщениям",
+    "Video call" : "Видеозвонок",
+    "_%n participant_::_%n participants_" : ["%n участник","%n участника","%n участников","%n участников"],
+    "_%n online_::_%n online_" : ["%n в сети","%n в сети","%n в сети","%n в сети"],
     "Private conversation" : "Частное обсуждение",
     "a conversation" : "обсуждение",
     "(Duration %s)" : "(Продолжительность %s)",

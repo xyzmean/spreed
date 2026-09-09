@@ -11,7 +11,7 @@
 		:aria-label="t('spreed', 'Share files to the conversation')"
 		:aria-haspopup="true">
 		<template #icon>
-			<IconPlus :size="20" />
+			<IconPaperclip :size="20" />
 		</template>
 
 		<NcActionButton
@@ -85,7 +85,7 @@ import NcActions from '@nextcloud/vue/components/NcActions'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import IconFolder from 'vue-material-design-icons/Folder.vue' // Filled as in Files app icon
 import IconForumOutline from 'vue-material-design-icons/ForumOutline.vue'
-import IconPlus from 'vue-material-design-icons/Plus.vue'
+import IconPaperclip from 'vue-material-design-icons/Paperclip.vue'
 import IconPoll from 'vue-material-design-icons/Poll.vue'
 import IconFileUpload from '../../../img/material-icons/file-upload.svg?raw'
 import IconSmartPicker from '../../../img/material-icons/smart-picker.svg?raw'
@@ -102,7 +102,7 @@ export default {
 		// Icons
 		IconFolder,
 		IconForumOutline,
-		IconPlus,
+		IconPaperclip,
 		IconPoll,
 	},
 

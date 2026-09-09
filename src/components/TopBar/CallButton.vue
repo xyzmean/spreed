@@ -16,7 +16,7 @@
 			<NcLoadingIcon v-if="isJoiningCall || loading" :size="20" />
 			<IconPhoneDialOutline v-else-if="isPhoneRoom" :size="20" />
 			<IconPhoneOutline v-else-if="silentCall" :size="20" />
-			<IconPhone v-else :size="20" />
+			<IconVideoOutline v-else :size="20" />
 		</template>
 		<template v-if="showButtonText" #default>
 			{{ startCallLabel }}
@@ -110,11 +110,11 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import IconArrowLeft from 'vue-material-design-icons/ArrowLeft.vue'
 import IconChevronUp from 'vue-material-design-icons/ChevronUp.vue'
-import IconPhone from 'vue-material-design-icons/Phone.vue' // Filled used for non-silent calls
 import IconPhoneDialOutline from 'vue-material-design-icons/PhoneDialOutline.vue'
 import IconPhoneHangupOutline from 'vue-material-design-icons/PhoneHangupOutline.vue'
 import IconPhoneOffOutline from 'vue-material-design-icons/PhoneOffOutline.vue'
 import IconPhoneOutline from 'vue-material-design-icons/PhoneOutline.vue'
+import IconVideoOutline from 'vue-material-design-icons/VideoOutline.vue'
 import { useGetToken } from '../../composables/useGetToken.ts'
 import { useIsInCall } from '../../composables/useIsInCall.js'
 import { useJoinCall } from '../../composables/useJoinCall.ts'
@@ -142,11 +142,11 @@ export default {
 		// Icons
 		IconArrowLeft,
 		IconChevronUp,
-		IconPhone,
 		IconPhoneDialOutline,
 		IconPhoneHangupOutline,
 		IconPhoneOffOutline,
 		IconPhoneOutline,
+		IconVideoOutline,
 		NcLoadingIcon,
 	},
 
@@ -304,7 +304,7 @@ export default {
 				return t('spreed', 'Connecting …')
 			}
 
-			return this.silentCall ? t('spreed', 'Start call silently') : t('spreed', 'Start call')
+			return this.silentCall ? t('spreed', 'Start call silently') : t('spreed', 'Video call')
 		},
 
 		endCallLabel() {

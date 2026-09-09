@@ -258,7 +258,7 @@
 				@audioFile="handleAudioFile" />
 
 			<!-- Edit -->
-			<template v-else-if="messageToEdit">
+			<template v-if="messageToEdit">
 				<NcButton
 					variant="tertiary"
 					type="submit"
@@ -283,7 +283,7 @@
 			</template>
 
 			<!-- Send buttons -->
-			<template v-else>
+			<template v-else-if="!isRecordingAudio">
 				<NcButton
 					v-if="supportScheduleMessages && scheduleMessageTime"
 					:disabled="disabled || !text || isScheduling"
@@ -301,7 +301,8 @@
 				<NcButton
 					v-else
 					:disabled="disabled"
-					variant="tertiary"
+					variant="primary"
+					class="new-message-form__send"
 					type="submit"
 					:title="sendMessageLabel"
 					:aria-label="sendMessageLabel"
@@ -661,7 +662,9 @@ export default {
 		},
 
 		showSendActions() {
-			return !this.broadcast && !this.isRecordingAudio && (!this.messageToEdit || this.showScheduledMessages)
+			return !this.broadcast && !this.isRecordingAudio
+				&& (this.hasText || this.showScheduledMessages)
+				&& (!this.messageToEdit || this.showScheduledMessages)
 		},
 
 		showAttachmentsMenu() {
@@ -1452,6 +1455,11 @@ export default {
 
 <style lang="scss" scoped>
 @use '../../assets/variables.scss' as *;
+
+// The send button is the single filled control of the composer
+.new-message-form__send {
+	border-radius: var(--border-radius-pill) !important;
+}
 
 .wrapper {
 	padding: calc(var(--default-grid-baseline) * 2);

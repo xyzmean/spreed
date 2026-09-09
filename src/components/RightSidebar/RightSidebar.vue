@@ -538,6 +538,12 @@ export default {
 		},
 
 		handleUpdateActive(active) {
+			// The search tab only exists in the 'search' content state, so entering
+			// it from the outside (top bar) has to switch the state first
+			if (active === 'search-messages' && this.contentState !== 'search') {
+				this.handleUpdateState('search')
+				return
+			}
 			this.activeTab = active
 		},
 

@@ -74,8 +74,14 @@
 						:class="{ 'description__in-chat': !isInCall }">
 						{{ statusMessage }}
 					</p>
+					<p
+						v-if="participantsSummary"
+						class="description"
+						:class="{ 'description__in-chat': !isInCall }">
+						{{ participantsSummary }}
+					</p>
 					<NcPopover
-						v-if="conversation.description"
+						v-else-if="conversation.description"
 						noFocusTrap
 						:delay="500"
 						:boundary="boundaryElement"
@@ -127,6 +133,18 @@
 			<!-- Upcoming meetings -->
 			<CalendarEventsDialog v-if="showCalendarEvents" :token="token" />
 
+			<!-- Search messages of this conversation -->
+			<NcButton
+				v-if="!isInCall && !isSidebar"
+				variant="tertiary"
+				:title="SEARCH_MESSAGES_LABEL"
+				:aria-label="SEARCH_MESSAGES_LABEL"
+				@click="openSidebar('search-messages')">
+				<template #icon>
+					<IconMagnify :size="20" />
+				</template>
+			</NcButton>
+
 			<CallButton v-if="!isInCall" shrinkOnMobile />
 
 			<!-- TopBar menu -->
@@ -156,6 +174,7 @@ import IconAccountMultiplePlusOutline from 'vue-material-design-icons/AccountMul
 import IconArrowLeft from 'vue-material-design-icons/ArrowLeft.vue'
 import IconChevronRight from 'vue-material-design-icons/ChevronRight.vue'
 import IconClockOutline from 'vue-material-design-icons/ClockOutline.vue'
+import IconMagnify from 'vue-material-design-icons/Magnify.vue'
 import BreakoutRoomsEditor from '../BreakoutRoomsEditor/BreakoutRoomsEditor.vue'
 import CalendarEventsDialog from '../CalendarEventsDialog.vue'
 import ConversationIcon from '../ConversationIcon.vue'
@@ -175,6 +194,7 @@ import { useGroupwareStore } from '../../stores/groupware.ts'
 import { useSidebarStore } from '../../stores/sidebar.ts'
 import { getStatusMessage } from '../../utils/userStatus.ts'
 
+const SEARCH_MESSAGES_LABEL = t('spreed', 'Search messages')
 const canStartConversations = getTalkConfig('local', 'conversations', 'can-create')
 const supportConversationCreationAll = hasTalkFeature('local', 'conversation-creation-all')
 
@@ -201,6 +221,7 @@ export default {
 		IconArrowLeft,
 		IconChevronRight,
 		IconClockOutline,
+		IconMagnify,
 	},
 
 	props: {
@@ -229,6 +250,7 @@ export default {
 			CONVERSATION,
 			threadId: useGetThreadId(),
 			token: useGetToken(),
+			SEARCH_MESSAGES_LABEL,
 		}
 	},
 
@@ -260,6 +282,29 @@ export default {
 
 		showUserStatusAsDescription() {
 			return this.isOneToOneConversation && this.statusMessage
+		},
+
+		/**
+		 * Second line of a group conversation header: how many people are in the
+		 * conversation and how many of them currently have a session open.
+		 */
+		participantsSummary() {
+			if (this.isOneToOneConversation || this.conversation.type === CONVERSATION.TYPE.NOTE_TO_SELF) {
+				return ''
+			}
+
+			const participants = this.$store.getters.participantsList(this.token)
+			if (!participants.length) {
+				return ''
+			}
+
+			const total = n('spreed', '%n participant', '%n participants', participants.length)
+			const online = participants.filter((participant) => participant.sessionIds?.length > 0).length
+			if (!online) {
+				return total
+			}
+
+			return total + ' · ' + n('spreed', '%n online', '%n online', online)
 		},
 
 		statusMessage() {

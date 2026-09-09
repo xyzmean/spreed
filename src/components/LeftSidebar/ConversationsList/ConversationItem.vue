@@ -18,7 +18,7 @@
 		:actions-aria-label="t('spreed', 'Conversation actions')"
 		:to="to"
 		:bold="!!item.unreadMessages"
-		:counterNumber="item.unreadMessages"
+		:counterNumber="showSubname ? 0 : item.unreadMessages"
 		:counterType="counterType"
 		forceMenu
 		:compact="compact"
@@ -43,8 +43,11 @@
 				<span class="hidden-visually">{{ iconType.text }}</span>
 			</template>
 			<span class="text"> {{ item.displayName }} </span>
+			<span v-if="!compact && lastActivityLabel" class="conversation__timestamp">
+				{{ lastActivityLabel }}
+			</span>
 		</template>
-		<template v-if="!compact && !item.isSensitive && !isVoiceRoom" #subname>
+		<template v-if="showSubname" #subname>
 			<span class="conversation__subname" :title="conversationInformation.title">
 				<span
 					v-if="conversationInformation.actor"
@@ -60,6 +63,11 @@
 					{{ conversationInformation.message }}
 				</span>
 			</span>
+			<NcCounterBubble
+				v-if="item.unreadMessages"
+				class="conversation__counter"
+				:count="item.unreadMessages"
+				:type="counterType" />
 		</template>
 		<template v-if="!isSearchResult" #actions>
 			<template v-if="submenu === null">
@@ -300,6 +308,7 @@ import { isNavigationFailure, NavigationFailureType } from 'vue-router'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionSeparator from '@nextcloud/vue/components/NcActionSeparator'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcCounterBubble from '@nextcloud/vue/components/NcCounterBubble'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcListItem from '@nextcloud/vue/components/NcListItem'
@@ -332,6 +341,7 @@ import { useConversationInfo } from '../../../composables/useConversationInfo.ts
 import { AVATAR, CONVERSATION, PARTICIPANT } from '../../../constants.ts'
 import { getTalkConfig, hasTalkFeature } from '../../../services/CapabilitiesManager.ts'
 import { useConversationTagsStore } from '../../../stores/conversationTags.ts'
+import { formatDateTime, getDiffInDays, getRelativeDay } from '../../../utils/formattedTime.ts'
 import { copyConversationLinkToClipboard } from '../../../utils/handleUrl.ts'
 
 const supportsArchive = hasTalkFeature('local', 'archived-conversations-v2')
@@ -372,6 +382,7 @@ export default {
 		NcActionButton,
 		NcActionSeparator,
 		NcButton,
+		NcCounterBubble,
 		NcDialog,
 		NcIconSvgWrapper,
 		NcListItem,
@@ -441,6 +452,37 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Time of the last activity: the clock for today, a relative day name for
+		 * yesterday and a short date before that. Talk leaves the first line of
+		 * the row without any time, although in a chat list it is the main hint
+		 * of how fresh a conversation is.
+		 */
+		lastActivityLabel() {
+			if (!this.item.lastActivity) {
+				return ''
+			}
+			const ms = this.item.lastActivity * 1000
+			const diffInDays = getDiffInDays(ms)
+			if (diffInDays === 0) {
+				return formatDateTime(ms, 'shortTime')
+			}
+			if (diffInDays === -1) {
+				return getRelativeDay(ms)
+			}
+			return formatDateTime(ms, new Date(ms).getFullYear() === new Date().getFullYear()
+				? 'shortDateSameYear'
+				: 'shortDate')
+		},
+
+		/**
+		 * Whether the message preview line is rendered. It also carries the unread
+		 * counter, so without it the counter goes back to NcListItem's own column.
+		 */
+		showSubname() {
+			return !this.compact && !this.item.isSensitive && !this.isVoiceRoom
+		},
+
 		canFavorite() {
 			return this.item.participantType !== PARTICIPANT.TYPE.USER_SELF_JOINED
 		},
@@ -740,6 +782,47 @@ export default {
 }
 
 .conversation {
+	/**
+	 * NcListItem lines the name and the subname up in one column and stacks the
+	 * details slot and the unread counter into a second one. That second column
+	 * competes with the name for horizontal space and truncates it early. Put
+	 * the time on the name line and the counter on the preview line instead, so
+	 * the name gets the whole remaining width of the row.
+	 */
+	&:not(&--compact) :deep(.list-item-content__name) {
+		display: flex;
+		align-items: baseline;
+		gap: calc(2 * var(--default-grid-baseline));
+		// Overwrite the shrink-to-fit margin of NcListItem
+		margin-inline-end: 0;
+		min-width: 0;
+	}
+
+	&:not(&--compact) :deep(.list-item-content__subname) {
+		display: flex;
+		align-items: center;
+		gap: calc(2 * var(--default-grid-baseline));
+		margin-inline-end: 0;
+		min-width: 0;
+	}
+
+	&:not(&--compact) :deep(.list-item-content__name) > .text {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	&__timestamp {
+		flex: 0 0 auto;
+		white-space: nowrap;
+		font-size: 12px;
+		line-height: 1;
+		color: var(--color-text-maxcontrast);
+	}
+
+	&__counter {
+		flex: 0 0 auto;
+	}
+
 	// Overwrite ConversationIcon styles to blend a type icon with NcListItem
 	& :deep(.list-item:hover .conversation-icon__type) {
 		background-color: var(--color-background-hover);
@@ -774,6 +857,8 @@ export default {
 	}
 
 	&__subname {
+		flex: 1 1 auto;
+		min-width: 0;
 		display: flex;
 		gap: var(--default-grid-baseline);
 
