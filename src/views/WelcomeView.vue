@@ -6,7 +6,7 @@
 <script lang="ts" setup>
 import { showError } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -39,6 +39,25 @@ const text = computed(() => {
 	}
 })
 
+// xcloud: the design has no dashboard — the app opens straight into the
+// most recent conversation (I-013). The list is fetched by the left sidebar,
+// so wait for it; if the account has no conversations at all, the stock view
+// below stays as the empty state.
+const conversationsList = computed(() => store.getters.conversationsList as Array<{ token: string, isArchived?: boolean, lastActivity?: number }>)
+const redirecting = ref(false)
+watch(conversationsList, (list) => {
+	if (callUser.value || redirecting.value || !list?.length) {
+		return
+	}
+	const target = list
+		.filter((conversation) => !conversation.isArchived)
+		.sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0))[0] ?? list[0]
+	if (target) {
+		redirecting.value = true
+		router.replace({ name: 'conversation', params: { token: target.token } })
+	}
+}, { immediate: true })
+
 watchEffect(async () => {
 	if (callUser.value) {
 		try {
@@ -65,7 +84,8 @@ watchEffect(async () => {
 </script>
 
 <template>
-	<TalkDashboard v-if="supportsTalkDashboard" />
+	<div v-if="redirecting" />
+	<TalkDashboard v-else-if="supportsTalkDashboard" />
 	<EmptyView
 		v-else
 		:name="text.name"
